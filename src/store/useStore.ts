@@ -51,18 +51,29 @@ export interface TestSession {
 export type HRGender = 'male' | 'female';
 export type HRTone = 'professional' | 'friendly' | 'strict';
 
+export interface ResumeAnalysis {
+  atsScore: number;
+  summary: string;
+  topSkills: string[];
+  missingKeywords: string[];
+  formattingScore: number;
+  actionItems: string[];
+}
+
 interface AppState {
   companies: Company[];
   selectedCompany: Company | null;
   currentSession: TestSession | null;
   hrGender: HRGender;
   hrTone: HRTone;
+  resumeAnalysis: ResumeAnalysis | null;
   setCompanies: (companies: Company[]) => void;
   selectCompany: (company: Company) => void;
   startSession: (companyId: string) => void;
   updateSession: (updates: Partial<TestSession>) => void;
   resetSession: () => void;
   setHRSettings: (gender: HRGender, tone: HRTone) => void;
+  setResumeAnalysis: (analysis: ResumeAnalysis) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -77,6 +88,7 @@ export const useAppStore = create<AppState>((set) => ({
   currentSession: null,
   hrGender: 'female',
   hrTone: 'professional',
+  resumeAnalysis: null,
   setCompanies: (companies) => set({ companies }),
   selectCompany: (company) => set({ selectedCompany: company }),
   startSession: (companyId) => set({ 
@@ -94,4 +106,5 @@ export const useAppStore = create<AppState>((set) => ({
   })),
   resetSession: () => set({ currentSession: null, selectedCompany: null }),
   setHRSettings: (gender, tone) => set({ hrGender: gender, hrTone: tone }),
+  setResumeAnalysis: (analysis) => set({ resumeAnalysis: analysis }),
 }));
