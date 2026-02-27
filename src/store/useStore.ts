@@ -48,15 +48,21 @@ export interface TestSession {
   hrScore: number | null;
 }
 
+export type HRGender = 'male' | 'female';
+export type HRTone = 'professional' | 'friendly' | 'strict';
+
 interface AppState {
   companies: Company[];
   selectedCompany: Company | null;
   currentSession: TestSession | null;
+  hrGender: HRGender;
+  hrTone: HRTone;
   setCompanies: (companies: Company[]) => void;
   selectCompany: (company: Company) => void;
   startSession: (companyId: string) => void;
   updateSession: (updates: Partial<TestSession>) => void;
   resetSession: () => void;
+  setHRSettings: (gender: HRGender, tone: HRTone) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -69,6 +75,8 @@ export const useAppStore = create<AppState>((set) => ({
   ],
   selectedCompany: null,
   currentSession: null,
+  hrGender: 'female',
+  hrTone: 'professional',
   setCompanies: (companies) => set({ companies }),
   selectCompany: (company) => set({ selectedCompany: company }),
   startSession: (companyId) => set({ 
@@ -85,4 +93,5 @@ export const useAppStore = create<AppState>((set) => ({
     currentSession: state.currentSession ? { ...state.currentSession, ...updates } : null
   })),
   resetSession: () => set({ currentSession: null, selectedCompany: null }),
+  setHRSettings: (gender, tone) => set({ hrGender: gender, hrTone: tone }),
 }));

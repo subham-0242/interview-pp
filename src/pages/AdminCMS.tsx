@@ -15,8 +15,8 @@ import { useAppStore } from '../store/useStore';
 import { motion } from 'motion/react';
 
 export default function AdminCMS() {
-  const { companies } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'companies' | 'questions'>('companies');
+  const { companies, hrGender, hrTone, setHRSettings } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'companies' | 'questions' | 'settings'>('companies');
 
   return (
     <div className="space-y-8">
@@ -25,10 +25,12 @@ export default function AdminCMS() {
           <h1 className="text-3xl font-bold text-zinc-900">Content Management</h1>
           <p className="text-zinc-500 mt-1">Manage companies, question banks, and test mappings.</p>
         </div>
-        <button className="bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Add New {activeTab === 'companies' ? 'Company' : 'Question'}
-        </button>
+        {activeTab !== 'settings' && (
+          <button className="bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Add New {activeTab === 'companies' ? 'Company' : 'Question'}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -48,6 +50,14 @@ export default function AdminCMS() {
           }`}
         >
           Question Bank
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
+            activeTab === 'settings' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+          }`}
+        >
+          Interview Settings
         </button>
       </div>
 
@@ -93,7 +103,7 @@ export default function AdminCMS() {
             <span className="font-bold text-zinc-400 group-hover:text-emerald-600">Add Company</span>
           </button>
         </div>
-      ) : (
+      ) : activeTab === 'questions' ? (
         <div className="bg-white rounded-[32px] border border-zinc-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-zinc-100 flex items-center justify-between">
             <div className="relative max-w-md flex-1">
@@ -138,6 +148,56 @@ export default function AdminCMS() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white p-8 rounded-[32px] border border-zinc-200 shadow-sm max-w-2xl">
+          <h3 className="text-xl font-bold text-zinc-900 mb-6">HR Interview Configuration</h3>
+          
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-zinc-700 uppercase tracking-wider">Interviewer Gender</label>
+              <div className="flex gap-4">
+                {(['male', 'female'] as const).map((gender) => (
+                  <button
+                    key={gender}
+                    onClick={() => setHRSettings(gender, hrTone)}
+                    className={`flex-1 py-4 rounded-2xl border-2 transition-all font-bold capitalize ${
+                      hrGender === gender 
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
+                        : 'border-zinc-100 bg-zinc-50 text-zinc-500 hover:border-zinc-200'
+                    }`}
+                  >
+                    {gender}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-zinc-700 uppercase tracking-wider">Interviewer Tone</label>
+              <div className="grid grid-cols-3 gap-4">
+                {(['professional', 'friendly', 'strict'] as const).map((tone) => (
+                  <button
+                    key={tone}
+                    onClick={() => setHRSettings(hrGender, tone)}
+                    className={`py-4 rounded-2xl border-2 transition-all font-bold capitalize ${
+                      hrTone === tone 
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
+                        : 'border-zinc-100 bg-zinc-50 text-zinc-500 hover:border-zinc-200'
+                    }`}
+                  >
+                    {tone}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                <span className="font-bold text-zinc-700">Note:</span> These settings will apply to all students taking the HR Interview round. The AI will adjust its persona and visual representation based on these selections.
+              </p>
+            </div>
           </div>
         </div>
       )}
