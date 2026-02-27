@@ -382,6 +382,21 @@ export default function AdminCMS() {
                               </div>
                             </div>
                           )}
+
+                          {round.type === 'hr' && (
+                            <div className="pl-9">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Number of Interview Questions</label>
+                                <input 
+                                  type="number" 
+                                  value={round.config?.questionCount || 5}
+                                  onChange={(e) => updateRound(round.id, { config: { ...round.config, questionCount: parseInt(e.target.value) } })}
+                                  className="w-32 px-3 py-1.5 rounded-lg border border-zinc-200 text-sm font-bold"
+                                />
+                                <p className="text-[10px] text-zinc-400">The AI will ask this many behavioral questions before finishing.</p>
+                              </div>
+                            </div>
+                          )}
                         </Reorder.Item>
                       ))}
                     </Reorder.Group>

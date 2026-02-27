@@ -148,5 +148,8 @@ export async function processHRAudio(audioBase64: string, mimeType: string, ques
 
   const text = response.text;
   if (!text) throw new Error("No response from Gemini");
-  return JSON.parse(text);
+  
+  // Sanitize JSON response (remove markdown blocks if present)
+  const sanitized = text.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(sanitized);
 }

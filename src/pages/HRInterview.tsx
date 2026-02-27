@@ -48,9 +48,11 @@ export default function HRInterview() {
   const [currentSentiment, setCurrentSentiment] = useState('Neutral');
   const [transcripts, setTranscripts] = useState<any[]>([]);
   const [turnCount, setTurnCount] = useState(0);
-  const maxTurns = 5;
+  const [finalTranscript, setFinalTranscript] = useState('');
 
   const selectedCompany = companies.find(c => c.id === currentSession?.companyId);
+  const hrRound = selectedCompany?.workflow.find(r => r.type === 'hr');
+  const maxTurns = hrRound?.config?.questionCount || 5;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -122,14 +124,15 @@ export default function HRInterview() {
       recognitionRef.current.interimResults = true;
       recognitionRef.current.onresult = (event: any) => {
         let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        let finalTranscriptAccumulator = '';
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            // Final result handled by audio blob processing usually, 
-            // but we show it live
+            finalTranscriptAccumulator += event.results[i][0].transcript + ' ';
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
         }
+        setFinalTranscript(finalTranscriptAccumulator);
         setLiveTranscript(interimTranscript);
       };
     }
@@ -139,6 +142,7 @@ export default function HRInterview() {
     if (!streamRef.current) return;
     
     setLiveTranscript('');
+    setFinalTranscript('');
     audioChunksRef.current = [];
     const mediaRecorder = new MediaRecorder(streamRef.current);
     mediaRecorderRef.current = mediaRecorder;
@@ -183,9 +187,10 @@ export default function HRInterview() {
       };
 
       setTranscripts(prev => [...prev, userTurn]);
-      setTurnCount(prev => prev + 1);
+      const nextTurnCount = turnCount + 1;
+      setTurnCount(nextTurnCount);
 
-      if (turnCount < maxTurns - 1) {
+      if (nextTurnCount < maxTurns) {
         // Generate Next Question
         const nextQuestion = await generateHRQuestion(resumeAnalysis?.topSkills || [], [...transcripts, userTurn]);
         setTranscripts(prev => [...prev, {
@@ -193,12 +198,16 @@ export default function HRInterview() {
           text: nextQuestion,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
+      } else {
+        // Auto-submit when turns are complete
+        await handleSubmit();
       }
     } catch (error) {
       console.error("Turn processing failed:", error);
     } finally {
       setIsProcessing(false);
       setLiveTranscript('');
+      setFinalTranscript('');
     }
   };
 
@@ -288,7 +297,7 @@ export default function HRInterview() {
                     <Activity className="w-4 h-4 animate-pulse" />
                   </div>
                   <div className="bg-zinc-50 border border-zinc-100 p-4 rounded-2xl rounded-tr-none max-w-[80%]">
-                    <p className="text-sm text-zinc-500 italic">{liveTranscript}...</p>
+                    <p className="text-sm text-zinc-500 italic">{finalTranscript}{liveTranscript}...</p>
                   </div>
                 </motion.div>
               )}
@@ -345,19 +354,19 @@ export default function HRInterview() {
                 </button>
               )}
               
-              {turnCount >= 2 && (
+              {turnCount >= 1 && (
                 <button 
                   onClick={handleSubmit}
                   disabled={isSubmitting || isProcessing}
                   className="bg-zinc-900 text-white px-10 py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-xl shadow-zinc-900/10 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                  Finish Interview
+                  Stop Interview
                 </button>
               )}
             </div>
             <p className="text-center text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-4">
-              {turnCount} / {maxTurns} Turns Completed
+              {turnCount} / {maxTurns} Questions Answered
             </p>
           </div>
         </div>
