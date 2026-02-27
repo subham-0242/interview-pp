@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
   Play, 
@@ -8,11 +8,16 @@ import {
   Terminal,
   CheckCircle2,
   AlertCircle,
-  Code2
+  Code2,
+  Send,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAppStore } from '../store/useStore';
+import { generateRoundFeedback } from '../services/geminiService';
 
 export default function CodingLab() {
+  const { currentSession, addWarning, submitRound } = useAppStore();
   const [code, setCode] = useState(`function findTwoSum(nums, target) {
   const map = new Map();
   for (let i = 0; i < nums.length; i++) {
@@ -29,6 +34,33 @@ export default function CodingLab() {
     { type: 'info', text: 'Ready to run your code...' }
   ]);
   const [isRunning, setIsRunning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Anti-cheating: Focus Tracking
+  useEffect(() => {
+    const handleBlur = () => {
+      if (currentSession && !currentSession.isRoundSubmitted) {
+        addWarning();
+        alert(`Warning: Window focus lost! Switching tabs or leaving the window is not allowed. (${currentSession.warnings + 1}/3)`);
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, [currentSession, addWarning]);
+
+  // Anti-cheating: Event Interception
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'v' || e.key === 'x')) {
+      e.preventDefault();
+      alert('Copy, Paste, and Cut are disabled for security reasons.');
+    }
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    alert('Right-click is disabled for security reasons.');
+  }, []);
 
   const handleRun = () => {
     setIsRunning(true);
@@ -45,8 +77,36 @@ export default function CodingLab() {
     }, 1500);
   };
 
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      const performanceData = {
+        code,
+        testResults: output.filter(o => o.type !== 'info'),
+        warnings: currentSession?.warnings || 0
+      };
+      
+      const feedback = await generateRoundFeedback('Coding', performanceData);
+      // Mock score calculation based on test results
+      const passCount = output.filter(o => o.type === 'success').length;
+      const totalTests = output.filter(o => o.type !== 'info').length || 1;
+      const score = Math.round((passCount / totalTests) * 100);
+      
+      submitRound(score, feedback);
+    } catch (error) {
+      console.error('Submission failed:', error);
+      alert('Failed to submit. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="h-[calc(100vh-160px)] flex flex-col gap-4">
+    <div 
+      className="h-[calc(100vh-240px)] flex flex-col gap-4"
+      onKeyDown={handleKeyDown}
+      onContextMenu={handleContextMenu}
+    >
       {/* Header */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-zinc-200 shadow-sm">
         <div className="flex items-center gap-4">
@@ -59,23 +119,22 @@ export default function CodingLab() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-500">
-            <Settings className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => setCode('')}
-            className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-500"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
-          <div className="w-px h-6 bg-zinc-200 mx-2" />
           <button 
             onClick={handleRun}
-            disabled={isRunning}
-            className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            disabled={isRunning || isSubmitting}
+            className="bg-zinc-100 text-zinc-700 px-6 py-2 rounded-xl font-bold hover:bg-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <Play className="w-4 h-4 fill-current" />
             Run Code
+          </button>
+          <div className="w-px h-6 bg-zinc-200 mx-2" />
+          <button 
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            Submit Solution
           </button>
         </div>
       </div>
@@ -120,15 +179,24 @@ export default function CodingLab() {
                 scrollBeyondLastLine: false,
                 padding: { top: 20 },
                 fontFamily: 'JetBrains Mono',
+                contextmenu: false, // Disable built-in context menu
               }}
             />
           </div>
 
           {/* Console */}
           <div className="h-48 bg-white rounded-3xl border border-zinc-200 shadow-sm flex flex-col overflow-hidden">
-            <div className="px-6 py-3 border-b border-zinc-100 flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-zinc-400" />
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Console Output</span>
+            <div className="px-6 py-3 border-b border-zinc-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-zinc-400" />
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Console Output</span>
+              </div>
+              <button 
+                onClick={() => setOutput([{ type: 'info', text: 'Console cleared.' }])}
+                className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 uppercase tracking-tighter"
+              >
+                Clear
+              </button>
             </div>
             <div className="flex-1 p-4 font-mono text-sm overflow-y-auto space-y-1">
               {output.map((line, i) => (

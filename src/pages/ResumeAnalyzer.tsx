@@ -12,15 +12,17 @@ import {
   Loader2,
   RefreshCcw,
   ListChecks,
-  Sparkles
+  Sparkles,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { analyzeResume } from '../services/geminiService';
+import { analyzeResume, generateRoundFeedback } from '../services/geminiService';
 import { useAppStore, ResumeAnalysis } from '../store/useStore';
 
 export default function ResumeAnalyzer() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const { resumeAnalysis, setResumeAnalysis } = useAppStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { resumeAnalysis, setResumeAnalysis, currentSession, submitRound } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +67,20 @@ export default function ResumeAnalyzer() {
   const handleReset = () => {
     setResumeAnalysis(null as any);
     setError(null);
+  };
+
+  const handleSubmitAnalysis = async () => {
+    if (!resumeAnalysis) return;
+    setIsSubmitting(true);
+    try {
+      const feedback = await generateRoundFeedback('Resume Analysis', resumeAnalysis);
+      submitRound(resumeAnalysis.atsScore, feedback);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to submit analysis. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -258,13 +274,24 @@ export default function ResumeAnalyzer() {
             </div>
 
             <div className="flex gap-4">
-              <button 
-                onClick={handleReset}
-                className="flex-1 bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
-              >
-                <RefreshCcw className="w-5 h-5" />
-                Analyze New Resume
-              </button>
+              {currentSession ? (
+                <button 
+                  onClick={handleSubmitAnalysis}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-emerald-500 text-white py-4 rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  Submit Analysis & Continue
+                </button>
+              ) : (
+                <button 
+                  onClick={handleReset}
+                  className="flex-1 bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
+                >
+                  <RefreshCcw className="w-5 h-5" />
+                  Analyze New Resume
+                </button>
+              )}
               <button className="px-8 py-4 bg-white border border-zinc-200 rounded-2xl font-bold text-zinc-600 hover:bg-zinc-50 transition-all">
                 Download Report
               </button>

@@ -2,7 +2,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeAnalysis } from "../store/useStore";
 
 export async function analyzeResume(fileBase64: string, mimeType: string): Promise<ResumeAnalysis> {
-  // Create a new instance right before the call to ensure it uses the latest API key
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   const response = await ai.models.generateContent({
@@ -59,4 +58,30 @@ export async function analyzeResume(fileBase64: string, mimeType: string): Promi
     console.error("Failed to parse Gemini response:", text);
     throw new Error("Invalid response format from AI");
   }
+}
+
+export async function generateRoundFeedback(roundType: string, performanceData: any): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        parts: [
+          {
+            text: `Analyze the student's performance in the ${roundType} round.
+            Performance Data: ${JSON.stringify(performanceData)}
+            
+            Generate a structured response with two clear sections in Markdown:
+            1. "## What You Did": A summary of their mistakes, areas for improvement, or specific observations.
+            2. "## What Is Expected": A breakdown of the ideal industry-standard answer, logic, or behavior for this round.
+            
+            Be constructive, professional, and detailed.`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return response.text || "Failed to generate feedback.";
 }
