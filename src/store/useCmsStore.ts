@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabaseService } from '../services/supabaseService';
 
 export type RoundType = 'resume' | 'aptitude' | 'coding' | 'hr' | 'gd';
 
@@ -43,66 +44,118 @@ interface CmsState {
   companies: Company[];
   globalAptitudeBank: AptitudeQuestion[];
   codingBank: CodingQuestion[];
-  addCompany: (company: Omit<Company, 'id'>) => void;
-  updateCompany: (id: string, company: Partial<Company>) => void;
-  deleteCompany: (id: string) => void;
-  setGlobalAptitudeBank: (questions: AptitudeQuestion[]) => void;
-  addCodingQuestion: (question: Omit<CodingQuestion, 'id'>) => void;
-  deleteCodingQuestion: (id: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  
+  fetchInitialData: () => Promise<void>;
+  addCompany: (company: Omit<Company, 'id'>) => Promise<void>;
+  updateCompany: (id: string, company: Partial<Company>) => Promise<void>;
+  deleteCompany: (id: string) => Promise<void>;
+  setGlobalAptitudeBank: (questions: AptitudeQuestion[]) => Promise<void>;
+  addCodingQuestion: (question: Omit<CodingQuestion, 'id'>) => Promise<void>;
+  deleteCodingQuestion: (id: string) => Promise<void>;
 }
 
-export const useCmsStore = create<CmsState>((set) => ({
-  companies: [
-    { 
-      id: '1', 
-      name: 'Google', 
-      logo: 'https://logo.clearbit.com/google.com', 
-      description: 'Search and Cloud computing leader.', 
-      targetRole: 'Frontend Architect',
-      workflow: [
-        { id: 'r1', type: 'resume', duration: 5 },
-        { id: 'r2', type: 'aptitude', duration: 30, cutoff: 70, config: { topics: ['Logical Reasoning'], questionCount: 10 } },
-        { id: 'r3', type: 'coding', duration: 60, cutoff: 60, config: { questionCount: 2 } },
-        { id: 'r4', type: 'hr', duration: 20 }
-      ]
-    },
-    { 
-      id: '2', 
-      name: 'Microsoft', 
-      logo: 'https://logo.clearbit.com/microsoft.com', 
-      description: 'Software, services, and hardware giant.', 
-      targetRole: 'Fullstack Engineer',
-      workflow: [
-        { id: 'r5', type: 'aptitude', duration: 45, cutoff: 75, config: { topics: ['Quant'], questionCount: 15 } },
-        { id: 'r6', type: 'coding', duration: 90, cutoff: 70, config: { questionCount: 3 } }
-      ]
-    },
-  ],
+export const useCmsStore = create<CmsState>((set, get) => ({
+  companies: [],
   globalAptitudeBank: [],
-  codingBank: [
-    { 
-      id: 'c1', 
-      companyId: '1', 
-      title: 'Two Sum', 
-      problemStatement: 'Find two numbers that add up to target.', 
-      boilerplate: 'function twoSum(nums, target) {\n  // your code here\n}' 
+  codingBank: [],
+  isLoading: false,
+  error: null,
+
+  fetchInitialData: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const [companies, aptitudeQuestions, codingQuestions] = await Promise.all([
+        supabaseService.getCompanies(),
+        supabaseService.getAptitudeQuestions(),
+        supabaseService.getCodingQuestions()
+      ]);
+      set({ 
+        companies, 
+        globalAptitudeBank: aptitudeQuestions, 
+        codingBank: codingQuestions,
+        isLoading: false 
+      });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
     }
-  ],
-  addCompany: (company) => set((state) => ({
-    companies: [...state.companies, { ...company, id: Math.random().toString(36).substr(2, 9) }]
-  })),
-  updateCompany: (id, company) => set((state) => ({
-    companies: state.companies.map((c) => (c.id === id ? { ...c, ...company } : c))
-  })),
-  deleteCompany: (id) => set((state) => ({
-    companies: state.companies.filter((c) => c.id !== id),
-    codingBank: state.codingBank.filter((q) => q.companyId !== id)
-  })),
-  setGlobalAptitudeBank: (questions) => set({ globalAptitudeBank: questions }),
-  addCodingQuestion: (question) => set((state) => ({
-    codingBank: [...state.codingBank, { ...question, id: Math.random().toString(36).substr(2, 9) }]
-  })),
-  deleteCodingQuestion: (id) => set((state) => ({
-    codingBank: state.codingBank.filter((q) => q.id !== id)
-  })),
+  },
+
+  addCompany: async (company) => {
+    set({ isLoading: true });
+    try {
+      const newCompany = await supabaseService.saveCompany(company);
+      set((state) => ({
+        companies: [...state.companies, newCompany],
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  updateCompany: async (id, company) => {
+    set({ isLoading: true });
+    try {
+      const updatedCompany = await supabaseService.updateCompany(id, company);
+      set((state) => ({
+        companies: state.companies.map((c) => (c.id === id ? updatedCompany : c)),
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  deleteCompany: async (id) => {
+    set({ isLoading: true });
+    try {
+      await supabaseService.deleteCompany(id);
+      set((state) => ({
+        companies: state.companies.filter((c) => c.id !== id),
+        codingBank: state.codingBank.filter((q) => q.companyId !== id),
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  setGlobalAptitudeBank: async (questions) => {
+    set({ isLoading: true });
+    try {
+      // For bulk upload, we might want a more efficient way, but for now:
+      const savedQuestions = await supabaseService.saveAptitudeQuestions(questions);
+      set({ globalAptitudeBank: savedQuestions, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  addCodingQuestion: async (question) => {
+    set({ isLoading: true });
+    try {
+      const newQuestion = await supabaseService.saveCodingQuestion(question);
+      set((state) => ({
+        codingBank: [...state.codingBank, newQuestion],
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  deleteCodingQuestion: async (id) => {
+    set({ isLoading: true });
+    try {
+      await supabaseService.deleteCodingQuestion(id);
+      set((state) => ({
+        codingBank: state.codingBank.filter((q) => q.id !== id),
+        isLoading: false
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
 }));

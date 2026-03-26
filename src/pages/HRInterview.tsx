@@ -77,6 +77,17 @@ export default function HRInterview() {
           text: firstQuestion,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
+
+        // Speak the first question
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(firstQuestion);
+          utterance.rate = 0.9;
+          utterance.pitch = 1.0;
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Natural')) || voices[0];
+          if (preferredVoice) utterance.voice = preferredVoice;
+          window.speechSynthesis.speak(utterance);
+        }
       } catch (error) {
         console.error("Failed to init interview:", error);
       } finally {
@@ -171,9 +182,12 @@ export default function HRInterview() {
     setIsProcessing(true);
     try {
       const base64Audio = await blobToBase64(audioBlob);
-      const lastQuestion = transcripts[transcripts.length - 1].text;
+      const currentTranscripts = [...transcripts];
+      const lastQuestion = currentTranscripts.length > 0 
+        ? currentTranscripts[currentTranscripts.length - 1].text 
+        : "Tell me about yourself.";
       
-      // Process Audio with Gemini 2.0 Flash
+      // Process Audio with Gemini
       const { transcript, evaluation, sentiment } = await processHRAudio(base64Audio, 'audio/webm', lastQuestion);
       
       setCurrentSentiment(sentiment);
@@ -186,18 +200,35 @@ export default function HRInterview() {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
-      setTranscripts(prev => [...prev, userTurn]);
+      const updatedWithUser = [...currentTranscripts, userTurn];
+      setTranscripts(updatedWithUser);
+      
       const nextTurnCount = turnCount + 1;
       setTurnCount(nextTurnCount);
 
       if (nextTurnCount < maxTurns) {
-        // Generate Next Question
-        const nextQuestion = await generateHRQuestion(resumeAnalysis?.topSkills || [], [...transcripts, userTurn]);
-        setTranscripts(prev => [...prev, {
+        // Generate Next Question using the full history including the latest user response
+        const nextQuestion = await generateHRQuestion(resumeAnalysis?.topSkills || [], updatedWithUser);
+        
+        const interviewerTurn = {
           role: 'interviewer',
           text: nextQuestion,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
+        };
+        
+        setTranscripts(prev => [...prev, interviewerTurn]);
+
+        // Optional: Speak the question
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(nextQuestion);
+          utterance.rate = 0.9;
+          utterance.pitch = 1.0;
+          // Try to find a natural sounding voice
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Natural')) || voices[0];
+          if (preferredVoice) utterance.voice = preferredVoice;
+          window.speechSynthesis.speak(utterance);
+        }
       } else {
         // Auto-submit when turns are complete
         await handleSubmit();

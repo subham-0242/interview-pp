@@ -19,7 +19,9 @@ import {
   Settings,
   Clock,
   Target,
-  GripVertical
+  GripVertical,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { useCmsStore, Company, InterviewRound, RoundType, AptitudeQuestion, CodingQuestion } from '../store/useCmsStore';
 import { useAppStore } from '../store/useStore';
@@ -36,7 +38,9 @@ export default function AdminCMS() {
     deleteCompany, 
     setGlobalAptitudeBank,
     addCodingQuestion,
-    deleteCodingQuestion
+    deleteCodingQuestion,
+    isLoading,
+    error: cmsError
   } = useCmsStore();
   
   const { hrGender, hrTone, setHRSettings } = useAppStore();
@@ -62,13 +66,13 @@ export default function AdminCMS() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
+        complete: async (results) => {
           const parsedQuestions: AptitudeQuestion[] = results.data.map((row: any, index: number) => ({
             id: `apt-${index}`,
             qn: row['Q.N'] || index.toString(),
@@ -77,7 +81,7 @@ export default function AdminCMS() {
             answer: row['ANSWER'] || '',
             topic: row['TOPIC'] || 'General'
           }));
-          setGlobalAptitudeBank(parsedQuestions);
+          await setGlobalAptitudeBank(parsedQuestions);
           alert(`Successfully imported ${parsedQuestions.length} questions!`);
         },
         error: (error) => {
@@ -88,13 +92,13 @@ export default function AdminCMS() {
     }
   };
 
-  const handleCompanySubmit = (e: React.FormEvent) => {
+  const handleCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isEditingCompany) {
-      updateCompany(isEditingCompany, companyForm);
+      await updateCompany(isEditingCompany, companyForm);
       setIsEditingCompany(null);
     } else {
-      addCompany(companyForm);
+      await addCompany(companyForm);
       setIsAddingCompany(false);
     }
     setCompanyForm({ name: '', description: '', logo: 'https://logo.clearbit.com/placeholder.com', targetRole: '', workflow: [] });
@@ -138,6 +142,12 @@ export default function AdminCMS() {
 
   return (
     <div className="space-y-8">
+      {cmsError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">{cmsError}</p>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Content Management</h1>
@@ -409,8 +419,12 @@ export default function AdminCMS() {
                     )}
                   </div>
 
-                  <button type="submit" className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-                    <Save className="w-6 h-6" />
+                  <button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                     {isEditingCompany ? 'Update Company & Workflow' : 'Create Company'}
                   </button>
                 </form>
@@ -431,7 +445,11 @@ export default function AdminCMS() {
                         <button onClick={() => openEditCompany(company)} className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-400 hover:text-zinc-900">
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => deleteCompany(company.id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-zinc-400 hover:text-red-600">
+                        <button onClick={async () => {
+                          if (confirm('Are you sure you want to delete this company?')) {
+                            await deleteCompany(company.id);
+                          }
+                        }} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-zinc-400 hover:text-red-600">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

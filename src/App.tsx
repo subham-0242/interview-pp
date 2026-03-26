@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/useStore';
+import { useCmsStore } from './store/useCmsStore';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/DashboardLayout';
 import StudentDashboard from './pages/StudentDashboard';
@@ -27,6 +28,12 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: 
 }
 
 export default function App() {
+  const fetchInitialData = useCmsStore(state => state.fetchInitialData);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -53,4 +60,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-

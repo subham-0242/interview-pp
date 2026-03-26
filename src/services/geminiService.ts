@@ -5,7 +5,7 @@ export async function analyzeResume(fileBase64: string, mimeType: string): Promi
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: [
       {
         parts: [
@@ -64,7 +64,7 @@ export async function generateRoundFeedback(roundType: string, performanceData: 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: [
       {
         parts: [
@@ -94,7 +94,7 @@ export async function generateHRQuestion(skills: string[], previousTranscripts: 
     : `Based on the interview history: ${JSON.stringify(previousTranscripts)}, generate the next follow-up behavioral question. Keep it conversational but professional.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3-flash-preview",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       systemInstruction: "You are an expert HR interviewer. You ask behavioral questions to evaluate candidates based on their skills and experience."
@@ -108,7 +108,7 @@ export async function processHRAudio(audioBase64: string, mimeType: string, ques
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3-flash-preview",
     contents: [
       {
         parts: [
